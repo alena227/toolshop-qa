@@ -18,7 +18,8 @@ jobs:
       API_URL: http://localhost:8091
       # Настройки для docker compose магазина
       SPRINT: sprint5
-      DISABLE_LOGGING: "true"
+      # Логи Laravel включены, чтобы при ошибке 500 было видно её причину
+      DISABLE_LOGGING: "false"
 
     steps:
       - name: Checkout tests
@@ -67,6 +68,18 @@ jobs:
           echo "composer did not finish in time"
           exit 1
 
+      # Код магазина скачан на раннер от его пользователя, а PHP в контейнере
+      # работает от www-data (uid 1000) и не может писать в storage/.
+      # Кэш (CACHE_DRIVER=file) хранится как раз там, поэтому без этого шага
+      # всё, что использует кэш (/brands, /products, /users/me), отвечает 500.
+      - name: Fix Toolshop storage permissions
+        working-directory: toolshop
+        run: |
+          docker compose -f docker-compose.yml exec -T -u root laravel-api \
+            chown -R www-data:www-data storage bootstrap/cache
+          docker compose -f docker-compose.yml exec -T -u root laravel-api \
+            ls -ld storage storage/framework/cache bootstrap/cache
+
       - name: Wait for database
         working-directory: toolshop
         run: |
@@ -102,7 +115,8 @@ jobs:
             echo "Attempt $i/30: login=$login brands=$brands, waiting 5s..."
             sleep 5
           done
-          echo "API did not start in time"
+          echo "API did not start in time. Response of GET /brands:"
+          curl -s --max-time 60 -H "Accept: application/json" "$API_URL/brands" | head -c 3000
           exit 1
 
       # Angular собирает сайт при старте, это может занять несколько минут
@@ -127,7 +141,11 @@ jobs:
       - name: Show Toolshop logs on failure
         if: failure() || steps.run_tests.outcome == 'failure'
         working-directory: toolshop
-        run: docker compose -f docker-compose.yml logs --tail=200
+        run: |
+          docker compose -f docker-compose.yml logs --tail=200
+          echo "===== Laravel log ====="
+          docker compose -f docker-compose.yml exec -T laravel-api \
+            sh -c 'tail -n 100 storage/logs/laravel.log 2>/dev/null || echo "no laravel.log"'
 
       - name: Upload Allure results
         if: always()
