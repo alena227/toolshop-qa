@@ -47,9 +47,25 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps chromium
 
-      - name: Install Toolshop PHP dependencies
+      # Контейнер composer при старте сам ставит PHP-библиотеки магазина.
+      # Пока он работает, файлы API перезаписываются и API отвечает 500,
+      # поэтому ждём, пока он закончит, и проверяем, что закончил успешно.
+      - name: Wait for Toolshop PHP dependencies
         working-directory: toolshop
-        run: docker compose exec -T -u root laravel-api composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-ffi
+        run: |
+          for i in $(seq 1 120); do
+            state=$(docker compose -f docker-compose.yml ps -a --format '{{.State}}' composer)
+            if [ "$state" = "exited" ]; then
+              code=$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose -f docker-compose.yml ps -a -q composer)")
+              docker compose -f docker-compose.yml logs --tail=15 composer
+              echo "composer finished with exit code $code"
+              [ "$code" = "0" ] && exit 0 || exit 1
+            fi
+            echo "Attempt $i/120: composer is $state, waiting 5s..."
+            sleep 5
+          done
+          echo "composer did not finish in time"
+          exit 1
 
       - name: Wait for database
         working-directory: toolshop
@@ -70,18 +86,20 @@ jobs:
         run: docker compose exec -T laravel-api php artisan migrate:fresh --seed --force
 
       # Первый запрос к API после старта медленный — прогреваем заранее,
-      # чтобы тесты не упали по таймауту
+      # чтобы тесты не упали по таймауту. Проверяем и POST (логин), и GET
+      # (каталог): в прошлый раз логин уже работал, а каталог ещё отдавал 500.
       - name: Warm up API
         run: |
           for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 -X POST "$API_URL/users/login" \
+            login=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 -X POST "$API_URL/users/login" \
               -H "Content-Type: application/json" -H "Accept: application/json" \
               --data '{"email":"customer@practicesoftwaretesting.com","password":"welcome01"}' || true)
-            if [ "$code" = "200" ]; then
+            brands=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 -H "Accept: application/json" "$API_URL/brands" || true)
+            if [ "$login" = "200" ] && [ "$brands" = "200" ]; then
               echo "API is ready"
               exit 0
             fi
-            echo "Attempt $i/30: API returned $code, waiting 5s..."
+            echo "Attempt $i/30: login=$login brands=$brands, waiting 5s..."
             sleep 5
           done
           echo "API did not start in time"
@@ -109,7 +127,7 @@ jobs:
       - name: Show Toolshop logs on failure
         if: failure() || steps.run_tests.outcome == 'failure'
         working-directory: toolshop
-        run: docker compose logs --tail=200
+        run: docker compose -f docker-compose.yml logs --tail=200
 
       - name: Upload Allure results
         if: always()
