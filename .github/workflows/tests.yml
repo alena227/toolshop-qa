@@ -10,9 +10,34 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 45
+    env:
+      # Тесты идут против магазина, поднятого прямо в CI,
+      # а не против публичного стенда (там UI закрыт Cloudflare).
+      BASE_URL: http://localhost:4200
+      API_URL: http://localhost:8091
+      # Настройки для docker compose магазина
+      SPRINT: sprint5
+      DISABLE_LOGGING: "true"
 
+    steps:
+      - name: Checkout tests
+        uses: actions/checkout@v4
+
+      # Магазин берём из официального репозитория. Коммит зафиксирован,
+      # чтобы чужие изменения не ломали наш CI внезапно.
+      - name: Checkout Toolshop
+        uses: actions/checkout@v4
+        with:
+          repository: testsmith-io/practice-software-testing
+          ref: ae7caecb811dd8952c09d997e69be7cb946ecd44
+          path: toolshop
+
+      - name: Start Toolshop containers
+        working-directory: toolshop
+        run: docker compose -f docker-compose.yml up -d
+
+      # Пока магазин стартует, ставим свои зависимости — экономим время
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -22,10 +47,69 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps chromium
 
+      - name: Install Toolshop PHP dependencies
+        working-directory: toolshop
+        run: docker compose exec -T -u root laravel-api composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-ffi
+
+      - name: Wait for database
+        working-directory: toolshop
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T mariadb mysqladmin ping -h localhost -u root -proot --silent 2>/dev/null; then
+              echo "MariaDB is ready"
+              exit 0
+            fi
+            echo "Attempt $i/30: database not ready, waiting 2s..."
+            sleep 2
+          done
+          echo "Database did not start in time"
+          exit 1
+
+      - name: Create and seed database
+        working-directory: toolshop
+        run: docker compose exec -T laravel-api php artisan migrate:fresh --seed --force
+
+      # Первый запрос к API после старта медленный — прогреваем заранее,
+      # чтобы тесты не упали по таймауту
+      - name: Warm up API
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 -X POST "$API_URL/users/login" \
+              -H "Content-Type: application/json" -H "Accept: application/json" \
+              --data '{"email":"customer@practicesoftwaretesting.com","password":"welcome01"}' || true)
+            if [ "$code" = "200" ]; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Attempt $i/30: API returned $code, waiting 5s..."
+            sleep 5
+          done
+          echo "API did not start in time"
+          exit 1
+
+      # Angular собирает сайт при старте, это может занять несколько минут
+      - name: Wait for UI
+        run: |
+          for i in $(seq 1 120); do
+            if curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" | grep -q "200"; then
+              echo "UI is ready"
+              exit 0
+            fi
+            echo "Attempt $i/120: UI not ready, waiting 5s..."
+            sleep 5
+          done
+          echo "UI did not start in time"
+          exit 1
+
       - name: Run tests
         id: run_tests
         run: pytest
         continue-on-error: true
+
+      - name: Show Toolshop logs on failure
+        if: failure() || steps.run_tests.outcome == 'failure'
+        working-directory: toolshop
+        run: docker compose logs --tail=200
 
       - name: Upload Allure results
         if: always()
