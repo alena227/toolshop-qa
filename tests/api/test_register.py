@@ -1,7 +1,15 @@
+import uuid
+
 import allure
 import pytest
 
-from utils.data import make_user, years_ago
+from utils.data import make_user, unique_email, years_ago
+
+
+def _unique() -> str:
+    """Короткая случайная строка: подставляется в email, чтобы тест можно было
+    запускать сколько угодно раз и не упираться в «email уже занят» (409)."""
+    return uuid.uuid4().hex[:10]
 
 
 @allure.feature("API: Регистрация")
@@ -160,6 +168,72 @@ class TestRegister:
 
         assert response.status_code == 422, response.text
         assert "data leak" in response.text, "Пароль отклонён не из-за утечки"
+
+    @allure.title("Повторная регистрация с тем же email отклоняется")
+    def test_register_with_duplicate_email(self, api):
+        first = make_user()
+        first_response = api.register(first)
+        assert first_response.status_code == 201, first_response.text
+
+        duplicate = make_user(email=first["email"])
+        response = api.register(duplicate)
+
+        assert response.status_code == 409, response.text
+
+    @allure.title("Email сравнивается без учёта регистра")
+    def test_register_with_duplicate_email_in_different_case(self, api):
+        name = f"Test_{_unique()}"
+        first = make_user(email=f"{name}@Example.com")
+        first_response = api.register(first)
+        assert first_response.status_code == 201, first_response.text
+
+        duplicate = make_user(email=f"{name.lower()}@example.com")
+        response = api.register(duplicate)
+
+        assert response.status_code == 409, response.text
+
+    @allure.title("Невалидный формат email: {case}")
+    @pytest.mark.xfail(
+        reason="L-05: сервер не проверяет формат email (в правилах нет 'email')",
+        strict=True,
+    )
+    @pytest.mark.parametrize(
+        # {u} в шаблоне заменяется на случайную строку, чтобы email был уникальным
+        "case, template",
+        [
+            pytest.param("нет @", "qa{u}.example.com", id="no-at"),
+            pytest.param("нет домена", "qa{u}@", id="no-domain"),
+            pytest.param("нет имени", "@{u}.example.com", id="no-name"),
+            pytest.param("пробел внутри", "qa {u}@example.com", id="space"),
+            pytest.param("два @", "qa{u}@@example.com", id="two-at"),
+        ],
+    )
+    def test_register_with_invalid_email_format(self, api, case, template):
+        email = template.format(u=_unique())
+        user = make_user(email=email)
+
+        response = api.register(user)
+
+        assert response.status_code == 422, response.text
+        assert "email" in response.json(), "В ответе нет ошибки для поля email"
+
+    @allure.title("Граница длины email: {length}")
+    @pytest.mark.parametrize(
+        "length, expected_status",
+        [
+            pytest.param(256, 201, id="256-valid"),
+            pytest.param(257, 422, id="257-invalid"),
+        ],
+    )
+    def test_register_with_email_length_boundary(self, api, length, expected_status):
+        base = unique_email()
+        email = "a" * (length - len(base)) + base
+        assert len(email) == length
+
+        user = make_user(email=email)
+        response = api.register(user)
+
+        assert response.status_code == expected_status, response.text
 
 
 
