@@ -37,28 +37,33 @@ class TestRegister:
         assert response.status_code == 422, response.text
         assert field in response.json(), f"В ответе нет ошибки для поля {field}"
 
-    # ---------- ДАЛЬШЕ ПИШЕШЬ ТЫ ----------
-    #
-    # TODO(Алёна): граничные значения длины (Swagger, схема UserRequest)
-    #   - first_name: 40 символов → 201, 41 символ → 422
-    #   - last_name:  20 символов → 201, 21 символ → 422
-    #   Подсказка: make_user(first_name="A" * 40)
-    #
-    # TODO(Алёна): возраст «от 18 до 75 лет» (Swagger, поле dob)
-    #   - ровно 18 лет               years_ago(18)          → 201
-    #   - 18 лет исполнится завтра   years_ago(18, days=1)  → 422
-    #   - ровно 75 лет               years_ago(75)          → 201?
-    #   - 75 лет и один день         years_ago(75, days=-1) → 422?
-    #   Вопрос: включительна ли граница 75? Это тоже находка для requirements-issues.
-    #
-    # TODO(Алёна): правила пароля (заглавная, строчная, цифра, спецсимвол, минимум 8)
-    #   - "Abcdef1!" (ровно 8)        → 201
-    #   - "Abcde1!"  (7 символов)     → 422
-    #   - без цифры, без спецсимвола, без заглавной, без строчной → 422
-    #   - "1234567890" (W-31 на версии с багами) → 422
-    #   Подсказка: один тест с parametrize на все негативные пароли, ids=[...]
-    #
-    # TODO(Алёна): email
-    #   - уже зарегистрированный email → 409 (Swagger) — подсказка: зарегистрируй
-    #     пользователя дважды с одним и тем же email
-    #   - невалидный формат: "no-at-sign", "a@", "@b.com" → 422
+    @allure.title("Граничная допустимая длина поля {field}: {length}")
+    @pytest.mark.parametrize(
+        "field, length",
+        [("first_name", 40), ("last_name", 20)],
+        ids=["first_name-40", "last_name-20"],
+    )
+    def test_register_with_maximum_name_length(self, api, field, length):
+        user = make_user(**{field: "A" * length})
+
+        response = api.register(user)
+
+        assert response.status_code == 201, response.text
+        assert response.json()[field] == "A" * length, "Имя сохранилось не целиком"
+
+    @allure.title("Превышение максимальной длины поля {field}: {length}")
+    @pytest.mark.parametrize(
+        "field, length",
+        [("first_name", 41), ("last_name", 21)],
+        ids=["first_name-41", "last_name-21"],
+    )
+    def test_register_with_name_length_over_limit(self, api, field, length):
+        user = make_user(**{field: "A" * length})
+
+        response = api.register(user)
+
+        assert response.status_code == 422, response.text
+        assert field in response.json(), f"В ответе нет ошибки для поля {field}"
+
+
+
