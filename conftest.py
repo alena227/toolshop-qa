@@ -1,8 +1,8 @@
 import pytest
-import uuid
 
 from utils import config
 from utils.api_client import ApiClient
+from utils.data import make_user
 
 
 @pytest.fixture(scope="session")
@@ -36,21 +36,7 @@ def base_url() -> str:
 @pytest.fixture
 def new_user(api: ApiClient) -> dict:
     """Свежий пользователь для каждого теста: его не жалко заблокировать."""
-    user = {
-        "first_name": "Test",
-        "last_name": "User",
-        "email": f"qa_{uuid.uuid4().hex[:10]}@example.com",
-        "password": "Toolshop#Qa2026",
-        "dob": "1990-01-01",
-        "phone": "0987654321",
-        "address": {
-            "street": "Test street 1",
-            "city": "Moscow",
-            "state": "Moscow",
-            "country": "RU",
-            "postal_code": "101000",
-        },
-    }
+    user = make_user()
     response = api.register(user)
     assert response.status_code == 201, f"Не удалось зарегистрироваться: {response.text}"
     return user
