@@ -119,5 +119,47 @@ class TestRegister:
         assert response.status_code == 422, response.text
         assert "dob" in response.json(), "В ответе нет ошибки для поля dob"
 
+    @allure.title("Регистрация с минимально допустимым паролем и последующий вход")
+    def test_register_with_minimum_valid_password_and_login(self, api):
+        password = "Xq7#vB2k"
+        user = make_user(password=password)
+
+        response = api.register(user)
+
+        assert response.status_code == 201, response.text
+        assert "password" not in response.json(), "Пароль не должен возвращаться в ответе"
+
+        login_response = api.login(user["email"], password)
+        assert login_response.status_code == 200, login_response.text
+
+    @allure.title("Недопустимый пароль: {case}")
+    @pytest.mark.parametrize(
+        "case, password",
+        [
+            pytest.param("7 символов", "Xq7#vB2", id="7-chars"),
+            pytest.param("без цифры", "Xq#vBzkm", id="no-digit"),
+            pytest.param("без спецсимвола", "Xq7vB2km", id="no-symbol"),
+            pytest.param("без заглавной", "xq7#vb2k", id="no-upper"),
+            pytest.param("без строчной", "XQ7#VB2K", id="no-lower"),
+            pytest.param("только цифры", "1234567890", id="digits-only"),
+        ],
+    )
+    def test_register_with_invalid_password(self, api, case, password):
+        user = make_user(password=password)
+
+        response = api.register(user)
+
+        assert response.status_code == 422, response.text
+        assert "password" in response.json(), "В ответе нет ошибки для поля password"
+
+    @allure.title("Пароль из базы утечек отклоняется с понятной причиной")
+    def test_register_with_leaked_password(self, api):
+        user = make_user(password="Password1!")
+
+        response = api.register(user)
+
+        assert response.status_code == 422, response.text
+        assert "data leak" in response.text, "Пароль отклонён не из-за утечки"
+
 
 
