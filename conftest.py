@@ -8,7 +8,7 @@ from utils.data import make_user
 @pytest.fixture(scope="session")
 def api() -> ApiClient:
     """Клиент без авторизации — для публичных эндпоинтов."""
-    return ApiClient(config.API_URL)
+    return ApiClient(config.API_URL, timeout=config.API_TIMEOUT)
 
 
 @pytest.fixture(scope="session")
@@ -22,7 +22,7 @@ def user_token(api: ApiClient) -> str:
 @pytest.fixture
 def auth_api(user_token: str) -> ApiClient:
     """Отдельный клиент с токеном пользователя."""
-    client = ApiClient(config.API_URL)
+    client = ApiClient(config.API_URL, timeout=config.API_TIMEOUT)
     client.set_token(user_token)
     return client
 

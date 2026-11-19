@@ -4,7 +4,7 @@
 что проверяет. Так в тесте видно главное, а не 15 полей формы.
 """
 import uuid
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def unique_email() -> str:
@@ -18,8 +18,11 @@ def years_ago(years: int, days: int = 0) -> str:
     years_ago(18)          -> ровно 18 лет сегодня
     years_ago(18, days=1)  -> 18 лет исполнится только завтра (ещё 17)
     years_ago(18, days=-1) -> 18 лет исполнилось вчера
+
+    «Сегодня» считается по UTC, как на сервере магазина. Иначе с 00:00 до 03:00
+    по Москве у нас уже завтра, а у сервера ещё сегодня, и тесты на точную дату падают.
     """
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     try:
         birthday = today.replace(year=today.year - years)
     except ValueError:
