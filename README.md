@@ -1,23 +1,71 @@
 # Toolshop QA — тестирование интернет-магазина
 
+[![Autotests](https://github.com/alena227/toolshop-qa/actions/workflows/tests.yml/badge.svg)](https://github.com/alena227/toolshop-qa/actions/workflows/tests.yml)
+
 Полный цикл тестирования учебного интернет-магазина
 [Practice Software Testing (Toolshop)](https://practicesoftwaretesting.com):
-от анализа требований и тест-кейсов до автотестов API и UI с CI.
+от анализа требований и исследовательского тестирования до автотестов API и UI с CI.
 
-**Стек:** Python · pytest · requests · Playwright · Allure · jsonschema · GitHub Actions
+**Стек:** Python · pytest · requests · Playwright · Allure · jsonschema · Docker · GitHub Actions
+
+## Результаты
+
+- **Найден 41 дефект**, из них **3 критичных** и **17 серьёзных** (Major) — полный список в [журнале дефектов](bugs/bug-log.md)
+- **7 подробных баг-репортов** в [GitHub Issues](https://github.com/alena227/toolshop-qa/issues): шаги воспроизведения, ожидаемый и фактический результат, скриншоты, запросы и ответы API
+- **6 вопросов к требованиям** по документации API — [requirements-issues.md](docs/requirements-issues.md)
+- **14 автотестов** (12 API + 2 UI), покрыто **7 эндпоинтов** API
+- **CI на каждый push и ежедневно:** магазин поднимается в Docker с нуля прямо в GitHub Actions, полный цикл занимает меньше 5 минут
+
+### Самые серьёзные находки
+
+| Дефект | Severity |
+|---|---|
+| [После смены пароля в профиле невозможно войти ни с новым, ни со старым паролем](https://github.com/alena227/toolshop-qa/issues/1) | Critical |
+| [После сброса пароля невозможно войти, сайт при этом сообщает об успехе](https://github.com/alena227/toolshop-qa/issues/2) | Critical |
+| [Заказ оплачивается служебным методом «Errror 304 - Missing Payment Gateway»](https://github.com/alena227/toolshop-qa/issues/4) | Critical |
+| [Сортировка по имени и по цене работает в обратную сторону](https://github.com/alena227/toolshop-qa/issues/3) | Major |
+| [Итоговая сумма корзины на $0.01 меньше суммы товаров](https://github.com/alena227/toolshop-qa/issues/5) | Major |
+| [Регистрация раскрывает подсказку к чужому паролю](https://github.com/alena227/toolshop-qa/issues/6) | Major |
+| [Принимается пароль без букв и спецсимволов](https://github.com/alena227/toolshop-qa/issues/7) | Major |
+
+### Проблемы окружения, которые пришлось решить
+
+Отдельно описаны в [docs/notes.md](docs/notes.md): негативные тесты блокировали общий аккаунт,
+публичный стенд закрыт защитой Cloudflare от ботов, в CI тесты стартовали раньше, чем магазин был готов,
+а на Linux у PHP не было прав на запись кэша. Итог — окружение, которое поднимается с нуля и не зависит
+от внешнего стенда.
 
 ## Что внутри
 
 ```
-docs/                  тест-план, шаблон баг-репорта, отчёт о тестировании
-pages/                 Page Object для UI-тестов
-tests/api/             API-автотесты (pytest + requests)
-tests/ui/              UI-автотесты (Playwright)
-utils/                 конфиг и API-клиент с логированием в Allure
-.github/workflows/     автопрогон в GitHub Actions на каждый push и раз в день
+bugs/                    журнал дефектов и скриншоты
+docs/                    тест-план, вопросы к требованиям, заметки, шаблон баг-репорта
+pages/                   Page Object для UI-тестов
+tests/api/               API-автотесты (pytest + requests)
+tests/ui/                UI-автотесты (Playwright)
+utils/                   конфиг и API-клиент с логированием в Allure
+.github/workflows/       CI: магазин в Docker + прогон тестов на каждый push и раз в день
+.github/ISSUE_TEMPLATE/  форма баг-репорта для GitHub Issues
 ```
 
-## Как запустить
+## Тестовое окружение
+
+Тесты идут против магазина, поднятого локально в Docker. Публичный стенд для автотестов не подходит:
+его UI закрыт защитой от ботов.
+
+```bash
+git clone https://github.com/testsmith-io/practice-software-testing.git
+cd practice-software-testing
+docker compose up -d
+docker compose exec -u root laravel-api chown -R www-data:www-data storage bootstrap/cache
+docker compose exec laravel-api php artisan migrate:fresh --seed
+```
+
+После запуска: сайт — http://localhost:4200, API и Swagger — http://localhost:8091/api/documentation.
+
+Поиск дефектов вёлся вручную на версии с намеренными багами: https://with-bugs.practicesoftwaretesting.com
+
+## Как запустить тесты
 
 ```bash
 python -m venv .venv
@@ -25,7 +73,16 @@ source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 playwright install chromium
 cp .env.example .env                 # Windows: copy .env.example .env
+```
 
+В `.env` укажи адреса локального магазина:
+
+```
+BASE_URL=http://localhost:4200
+API_URL=http://localhost:8091
+```
+
+```bash
 pytest                               # все тесты
 pytest -m smoke                      # только smoke
 pytest -m api                        # только API
@@ -34,40 +91,31 @@ pytest -m ui --headed                # UI с видимым браузером
 allure serve allure-results          # открыть отчёт (нужен Allure CLI)
 ```
 
-## Результаты
-<!-- Заполни после выполнения — это то, что увидит работодатель -->
-- Тест-кейсов: **[N]** (Qase: [ссылка])
-- Найдено дефектов: **[N]**, из них критичных **[N]** — см. [`bugs/`](bugs/) или Issues
-- Автотестов: **[N]** API + **[N]** UI, покрыто **[N]** эндпоинтов
-- Регресс: **[N] мин** вручную → **[N] мин** автоматически в CI
-
-[скриншот Allure-отчёта]
-
 ---
 
-## План работ (удали этот раздел перед публикацией)
+## План работ
 
-**Дни 1–2. Исследование и требования**
-- [ ] Пройти весь магазин руками, прочитать Swagger
-- [ ] Выписать неточности и вопросы к требованиям в `docs/requirements-issues.md`
+**Исследование и требования**
+- [x] Пройти магазин руками, прочитать Swagger
+- [x] Выписать неточности и вопросы к требованиям в `docs/requirements-issues.md`
 - [ ] Дописать тест-план в `docs/test-plan.md`
 
-**Дни 3–4. Тест-кейсы и баги**
+**Тест-кейсы и баги**
 - [ ] 60–100 тест-кейсов в Qase по техникам тест-дизайна
-- [ ] 3–4 исследовательские сессии на версии with-bugs, считать, сколько багов найдено в сессиях
-- [ ] Оформить баг-репорты по шаблону (GitHub Issues или папка `bugs/`)
+- [x] Исследовательские сессии на версии with-bugs
+- [x] Журнал дефектов и баг-репорты в GitHub Issues
 
-**День 5. Postman**
+**Postman**
 - [ ] Коллекция на основные эндпоинты с автопроверками, экспорт в `postman/`
 - [ ] Прогон через Newman
 
-**Дни 6–9. Автотесты**
-- [ ] Запустить готовые тесты, починить, если что-то упало (это и есть первые находки)
+**Автотесты**
+- [x] Запустить готовые тесты, починить упавшие
 - [ ] API: поиск, фильтры, сортировка, корзина (`/carts`), регистрация, заказ
 - [ ] UI: поиск, корзина, оформление заказа — новые Page Object в `pages/`
 - [ ] Параметризация и негативные кейсы везде, где есть ввод данных
 
-**Дни 10–11. CI и отчёт**
-- [ ] Залить на GitHub, убедиться, что workflow зелёный
+**CI и отчёт**
+- [x] Залить на GitHub, добиться зелёного workflow
 - [ ] Засечь время ручного регресса и автопрогона
-- [ ] Заполнить `docs/test-report.md` и раздел «Результаты» выше
+- [ ] Заполнить `docs/test-report.md`
