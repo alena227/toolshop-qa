@@ -1,0 +1,146 @@
+name: Баг-репорт
+description: Дефект, найденный в магазине Toolshop
+title: "[BUG] <где>: <что не так>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Один issue — один дефект. Заголовок по формуле **«где + что не так»**,
+        например: `[BUG] Корзина: итоговая сумма меньше суммы товаров на 1 цент`.
+
+  - type: input
+    id: log_id
+    attributes:
+      label: ID в журнале
+      description: Номер из `bugs/bug-log.md`, если есть
+      placeholder: W-15
+    validations:
+      required: false
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Окружение
+      options:
+        - with-bugs — https://with-bugs.practicesoftwaretesting.com
+        - local — http://localhost:4200 (Docker, sprint5)
+        - public — https://practicesoftwaretesting.com
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Браузер и ОС
+      placeholder: Chrome 142, Windows 11
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Серьёзность (Severity)
+      description: Насколько дефект влияет на работу системы
+      options:
+        - Critical — блокирует ключевую функцию, потеря денег или данных, нет обходного пути
+        - Major — важная функция работает неправильно, обходной путь есть
+        - Minor — неудобство, не мешает выполнить задачу
+        - Trivial — косметика, опечатки
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Приоритет (Priority)
+      description: Насколько срочно исправлять
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Область
+      options:
+        - Каталог, поиск, сортировка, фильтры
+        - Карточка товара
+        - Корзина
+        - Оформление заказа и оплата
+        - Регистрация, вход, сброс пароля
+        - Профиль, личный кабинет
+        - Contact
+        - Шапка, навигация
+        - Другое
+    validations:
+      required: true
+
+  - type: textarea
+    id: preconditions
+    attributes:
+      label: Предусловия
+      placeholder: |
+        - Пользователь зарегистрирован и залогинен
+        - В корзине 2 товара
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      description: Так, чтобы любой мог повторить без вопросов
+      placeholder: |
+        1. Открыть https://with-bugs.practicesoftwaretesting.com
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемый результат
+      placeholder: Что должно было произойти (по требованиям, Swagger или по поведению версии без багов)
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Фактический результат
+      placeholder: Что произошло на самом деле
+    validations:
+      required: true
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Скриншоты и видео
+      description: Перетащи файлы прямо сюда
+    validations:
+      required: false
+
+  - type: textarea
+    id: api
+    attributes:
+      label: Запрос и ответ API
+      description: Из DevTools → Network. Помогает понять, где баг — на сайте или на сервере
+      placeholder: |
+        POST /users/register → 201
+        Тело ответа: {...}
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Дополнительно
+      description: Как часто воспроизводится, связанные баги, догадки о причине
+    validations:
+      required: false

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Журнал всех находок
+    url: https://github.com/alena227/toolshop-qa/blob/main/bugs/bug-log.md
+    about: Полный список найденных дефектов, включая косметику и опечатки
