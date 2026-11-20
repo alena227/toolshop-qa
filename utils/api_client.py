@@ -57,3 +57,26 @@ class ApiClient:
 
     def register(self, user: dict) -> requests.Response:
         return self.post("/users/register", json=user)
+
+    # --- корзина ---
+
+    def create_cart(self) -> requests.Response:
+        return self.post("/carts")
+
+    def add_to_cart(self, cart_id: str, product_id: str, quantity: int = 1) -> requests.Response:
+        return self.post(f"/carts/{cart_id}", json={"product_id": product_id, "quantity": quantity})
+
+    def get_cart(self, cart_id: str) -> requests.Response:
+        return self.get(f"/carts/{cart_id}")
+
+    def update_cart_quantity(self, cart_id: str, product_id: str, quantity: int) -> requests.Response:
+        return self.put(
+            f"/carts/{cart_id}/product/quantity",
+            json={"product_id": product_id, "quantity": quantity},
+        )
+
+    def remove_from_cart(self, cart_id: str, product_id: str) -> requests.Response:
+        return self.delete(f"/carts/{cart_id}/product/{product_id}")
+
+    def delete_cart(self, cart_id: str) -> requests.Response:
+        return self.delete(f"/carts/{cart_id}")

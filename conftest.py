@@ -40,3 +40,21 @@ def new_user(api: ApiClient) -> dict:
     response = api.register(user)
     assert response.status_code == 201, f"Не удалось зарегистрироваться: {response.text}"
     return user
+
+
+@pytest.fixture
+def cart_id(api: ApiClient) -> str:
+    """Новая пустая корзина для каждого теста."""
+    response = api.create_cart()
+    assert response.status_code == 201, f"Не удалось создать корзину: {response.text}"
+    return response.json()["id"]
+
+
+@pytest.fixture(scope="session")
+def products(api: ApiClient) -> list[dict]:
+    """Несколько товаров из каталога (первая страница), берутся один раз на прогон."""
+    response = api.get("/products", params={"page": 1})
+    assert response.status_code == 200, response.text
+    items = response.json()["data"]
+    assert len(items) >= 2, "Для тестов корзины нужно хотя бы два товара"
+    return items
