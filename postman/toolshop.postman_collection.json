@@ -1,0 +1,420 @@
+{
+  "info": {
+    "_postman_id": "452bb95d-9895-4d1e-82e6-17b7232e4266",
+    "name": "Toolshop API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "60048407",
+    "_collection_link": "https://go.postman.co/collection/60048407-452bb95d-9895-4d1e-82e6-17b7232e4266?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"В ответе есть токен\", () => {\r\n    const body = pm.response.json();\r\n    pm.expect(body.access_token).to.be.a(\"string\").and.not.empty;\r\n    // Сохраняем токен, чтобы следующие запросы его использовали\r\n    pm.environment.set(\"token\", body.access_token);\r\n});\r\n\r\npm.test(\"Ответ быстрее 20 секунд\", () => {\r\n    pm.expect(pm.response.responseTime).to.be.below(20000);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"customer@practicesoftwaretesting.com\",\r\n  \"password\": \"welcome01\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Email совпадает с тем, под которым вошли\", () => {\r\n    pm.expect(pm.response.json().email).to.eql(\"customer@practicesoftwaretesting.com\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "Brands",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const schema = {\r\n    type: \"array\",\r\n    minItems: 1,\r\n    items: {\r\n        type: \"object\",\r\n        required: [\"id\", \"name\", \"slug\"],\r\n        properties: {\r\n            id: { type: \"string\" },\r\n            name: { type: \"string\", minLength: 1 },\r\n            slug: { type: \"string\", minLength: 1 }\r\n        }\r\n    }\r\n};\r\n\r\npm.test(\"Статус 200\", () => pm.response.to.have.status(200));\r\n\r\npm.test(\"Ответ соответствует схеме\", () => {\r\n    pm.response.to.have.jsonSchema(schema);\r\n});\r\n\r\n// Запоминаем id первого бренда — пригодится для фильтра\r\npm.environment.set(\"brandId\", pm.response.json()[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/brands",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "brands"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));\r\n\r\npm.test(\"Товары отсортированы по цене по возрастанию\", () => {\r\n    const prices = pm.response.json().data.map(p => p.price);\r\n    const sorted = [...prices].sort((a, b) => a - b);\r\n    pm.expect(prices).to.eql(sorted);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?sort=price,asc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "price,asc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Products by brand",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));\r\n\r\npm.test(\"Все товары нужного бренда\", () => {\r\n    const brandId = pm.environment.get(\"brandId\");\r\n    pm.response.json().data.forEach(p => {\r\n        pm.expect(p.brand.id).to.eql(brandId);\r\n    });\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?by_brand={{brandId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "by_brand",
+                  "value": "{{brandId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));\r\n\r\npm.test(\"Поиск что-то нашёл\", () => {\r\n    pm.expect(pm.response.json().data).to.be.an(\"array\").that.is.not.empty;\r\n});\r\n\r\npm.test(\"В каждом названии есть hammer без учёта регистра\", () => {\r\n    pm.response.json().data.forEach(p => {\r\n        pm.expect(p.name.toLowerCase()).to.include(\"hammer\");\r\n    });\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/search?q=hammer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "hammer"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Create cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 201\", () => pm.response.to.have.status(201));\r\n\r\npm.test(\"Корзина создана и у неё есть id\", () => {\r\n    const id = pm.response.json().id;\r\n    pm.expect(id).to.be.a(\"string\").and.not.empty;\r\n    pm.environment.set(\"cartId\", id);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/carts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "carts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add item",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Берём id первого товара из каталога и кладём в переменную\r\npm.sendRequest(pm.environment.get(\"baseUrl\") + \"/products\", (err, res) => {\r\n    pm.environment.set(\"productId\", res.json().data[0].id);\r\n});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"product_id\": \"{{productId}}\",\r\n  \"quantity\": 2\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/carts/{{cartId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "carts",
+                "{{cartId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));\r\n\r\npm.test(\"В корзине нужный товар в количестве 2\", () => {\r\n    const items = pm.response.json().cart_items;\r\n    pm.expect(items).to.have.lengthOf(1);\r\n    pm.expect(items[0].product_id).to.eql(pm.environment.get(\"productId\"));\r\n    pm.expect(items[0].quantity).to.eql(2);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/carts/{{cartId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "carts",
+                "{{cartId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add item — invalid quantity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 422\", () => pm.response.to.have.status(422));\n\npm.test(\"Ошибка именно про поле quantity\", () => {\n    pm.expect(pm.response.json().errors).to.have.property(\"quantity\");\n});\n\npm.test(\"Понятное сообщение об ошибке\", () => {\n    pm.expect(pm.response.json().message).to.include(\"at least 1\");\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"product_id\": \"{{productId}}\",\r\n  \"quantity\": 0\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/carts/{{cartId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "carts",
+                "{{cartId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/carts/{{cartId}}/product/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "carts",
+                "{{cartId}}",
+                "product",
+                "{{productId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Сообщаем серверу, что мы API-клиент и ждём ответ в JSON.\r",
+          "// Без этого Laravel при ошибке валидации делает перенаправление (302) вместо 422.\r",
+          "pm.request.headers.upsert({ key: \"Accept\", value: \"application/json\" });"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ]
+}
