@@ -43,6 +43,31 @@ def new_user(api: ApiClient) -> dict:
 
 
 @pytest.fixture
+def shopper(api: ApiClient) -> dict:
+    """Пользователь, который может оформить заказ.
+
+    Оформление заказа сверяет адрес со справочником индексов магазина, а тот выдаёт
+    выдуманные города (см. L-08). Поэтому адрес берём прямо из справочника —
+    иначе заказ отклоняется с 422.
+    """
+    country, postcode = "NL", "1012AB"
+    lookup = api.get("/postcode-lookup", params={"country": country, "postcode": postcode, "house_number": "1"})
+    assert lookup.status_code == 200, lookup.text
+    found = lookup.json()
+    user = make_user(address={
+        "street": found["street"],
+        "house_number": "1",
+        "city": found["city"],
+        "state": found["state"],
+        "country": country,
+        "postal_code": postcode,
+    })
+    response = api.register(user)
+    assert response.status_code == 201, f"Не удалось зарегистрироваться: {response.text}"
+    return user
+
+
+@pytest.fixture
 def cart_id(api: ApiClient) -> str:
     """Новая пустая корзина для каждого теста."""
     response = api.create_cart()
