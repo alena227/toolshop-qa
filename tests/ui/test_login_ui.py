@@ -29,9 +29,3 @@ class TestLoginUI:
 
         expect(login_page.error).to_be_visible()
         expect(page).to_have_url(re.compile(r"/auth/login"))
-
-    # TODO(Алёна): добавь UI-тесты по своим тест-кейсам:
-    #  - поиск товара и проверка, что в выдаче только подходящие товары
-    #  - добавление товара в корзину и проверка счётчика корзины
-    #  - оформление заказа до шага оплаты (CartPage, CheckoutPage в папке pages/)
-    # Локаторы ищи в DevTools по атрибуту data-test.

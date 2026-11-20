@@ -108,12 +108,8 @@ playwright install chromium
 cp .env.example .env                 # Windows: copy .env.example .env
 ```
 
-В `.env` укажи адреса локального магазина:
-
-```
-BASE_URL=http://localhost:4200
-API_URL=http://localhost:8091
-```
+В `.env.example` уже стоят адреса локального магазина (`localhost:4200` и `localhost:8091`),
+менять ничего не нужно.
 
 ```bash
 pytest                               # все тесты

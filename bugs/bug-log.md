@@ -1,8 +1,8 @@
 # Журнал найденных дефектов
 
 Быстрый журнал всех находок: одна строка на каждую. Подробные баг-репорты по самым
-серьёзным оформляются отдельными файлами `BUG-XXX.md` по шаблону
-[`docs/bug-report-template.md`](../docs/bug-report-template.md).
+серьёзным заведены в [GitHub Issues](https://github.com/alena227/toolshop-qa/issues)
+по форме баг-репорта — ссылка на issue стоит в колонке «Статус».
 
 **Окружения**
 - **with-bugs** — https://with-bugs.practicesoftwaretesting.com (версия с намеренными багами)
