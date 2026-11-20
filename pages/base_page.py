@@ -17,3 +17,8 @@ class BasePage:
     def by_test_id(self, value: str):
         # В Toolshop элементы помечены атрибутом data-test
         return self.page.locator(f"[data-test='{value}']")
+
+    @property
+    def cart_counter(self):
+        """Значок с количеством товаров у иконки корзины в шапке (есть на любой странице)."""
+        return self.by_test_id("cart-quantity")
