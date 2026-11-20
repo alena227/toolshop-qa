@@ -138,8 +138,19 @@ jobs:
         run: pytest
         continue-on-error: true
 
+      # Коллекция Postman прогоняется через Newman против того же магазина.
+      # Отчёт htmlextra сохраняется как артефакт прогона
+      - name: Run Postman collection (Newman)
+        id: run_newman
+        run: >
+          npx --yes -p newman -p newman-reporter-htmlextra
+          newman run postman/toolshop.postman_collection.json
+          -e postman/local.postman_environment.json
+          -r cli,htmlextra --reporter-htmlextra-export newman-report.html
+        continue-on-error: true
+
       - name: Show Toolshop logs on failure
-        if: failure() || steps.run_tests.outcome == 'failure'
+        if: failure() || steps.run_tests.outcome == 'failure' || steps.run_newman.outcome == 'failure'
         working-directory: toolshop
         run: |
           docker compose -f docker-compose.yml logs --tail=200
@@ -154,6 +165,13 @@ jobs:
           name: allure-results
           path: allure-results
 
+      - name: Upload Newman report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report
+          path: newman-report.html
+
       - name: Fail job if tests failed
-        if: steps.run_tests.outcome == 'failure'
+        if: steps.run_tests.outcome == 'failure' || steps.run_newman.outcome == 'failure'
         run: exit 1
